@@ -16,5 +16,5 @@
         android:layout_alignParentRight="true"
         android:layout_width="55dp"
         android:layout_height="wrap_content"
-        android:background="@drawable/ic_menu"/>
+        android:background="@drawable/btn_3"/>
 </RelativeLayout>
