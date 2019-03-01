@@ -123,7 +123,7 @@ public class ChatActivity extends AppCompatActivity {
                 head.setOnClickListener(onClick);
                 background.setOnClickListener(onClick);
                 popupWindow = new PopupWindow(view, msgRV.getWidth(), ViewGroup.LayoutParams.WRAP_CONTENT, true);
-                popupWindow.setOutsideTouchable(true);
+                popupWindow.setOutsideTouchable(false);
                 popupWindow.setFocusable(true);
                 popupWindow.showAtLocation(msgRV, Gravity.BOTTOM, 0, 0);
             }

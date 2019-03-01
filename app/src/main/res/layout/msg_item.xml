@@ -39,7 +39,7 @@
     </RelativeLayout>
 
 
-    <RelativeLayout
+    <LinearLayout
         android:id="@+id/right_layout"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
@@ -47,11 +47,12 @@
 
 
         <LinearLayout
+            android:layout_weight="1"
             android:id="@+id/a00"
-            android:layout_width="wrap_content"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:background="@drawable/right_pop"
-            android:orientation="vertical">
+            android:gravity="center">
 
             <TextView
                 android:id="@+id/right_msg"
@@ -73,5 +74,5 @@
             android:src="@drawable/timg"
             android:scaleType="centerCrop"/>
 
-    </RelativeLayout>
+    </LinearLayout>
 </LinearLayout>

@@ -7,6 +7,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.RelativeLayout;
 import android.widget.TextView;
 
@@ -20,7 +21,7 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
     private String head1, head2;
     static class ViewHolder extends RecyclerView.ViewHolder{
         RelativeLayout leftLayout;
-        RelativeLayout rightLayout;
+        LinearLayout rightLayout;
         TextView leftMsg;
         TextView rightMsg;
         ImageView leftHead;
