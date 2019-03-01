@@ -57,6 +57,8 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
             viewHolder.rightMsg.setText(msg.getContent());
             if (head2 != null){
                 Glide.with(context).load(head2).into(viewHolder.rightHead);
+            }else{
+                Glide.with(context).load(R.drawable.timg).into(viewHolder.rightHead);
             }
         }
     }
@@ -70,10 +72,6 @@ public class MsgAdapter extends RecyclerView.Adapter<MsgAdapter.ViewHolder> {
     @Override
     public int getItemCount() {
         return mMsgList.size();
-    }
-
-    private interface setHead{
-        public void sethead();
     }
 
 }

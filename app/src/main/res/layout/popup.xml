@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical" android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="#fff">
+
+    <TextView
+        android:id="@+id/tv_clear"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="清除聊天记录"
+        android:textSize="25sp"
+        android:gravity="center"
+        android:background="@drawable/btn_2"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/colorGainsboro"/>
+
+    <TextView
+        android:id="@+id/tv_head"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="设置头像"
+        android:textSize="25sp"
+        android:gravity="center"
+        android:background="@drawable/btn_2"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="1dp"
+        android:background="@color/colorGainsboro"/>
+
+    <TextView
+        android:id="@+id/tv_background"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="设置背景"
+        android:textSize="25sp"
+        android:gravity="center"
+        android:background="@drawable/btn_2"/>
+
+    <View
+        android:layout_width="match_parent"
+        android:layout_height="20dp"
+        android:background="@color/colorGainsboro"/>
+
+    <TextView
+        android:id="@+id/tv_cancel"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:text="取消"
+        android:textSize="25sp"
+        android:gravity="center"
+        android:background="@drawable/btn_2"/>
+
+</LinearLayout>

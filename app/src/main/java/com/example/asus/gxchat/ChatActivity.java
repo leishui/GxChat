@@ -4,11 +4,18 @@ package com.example.asus.gxchat;
 import android.Manifest;
 import android.annotation.SuppressLint;
 import android.annotation.TargetApi;
+import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
@@ -17,22 +24,24 @@ import android.os.Message;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.annotation.Nullable;
+import android.support.annotation.RequiresApi;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.support.v7.widget.LinearLayoutManager;
 import android.support.v7.widget.RecyclerView;
-import android.text.Spannable;
-import android.text.method.MovementMethod;
-import android.view.KeyEvent;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.view.ViewGroup;
 import android.view.Window;
+import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.LinearLayout;
+import android.widget.PopupWindow;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -57,54 +66,68 @@ import java.util.List;
 
 public class ChatActivity extends AppCompatActivity {
 
-    //右上角按钮内容
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        getMenuInflater().inflate(R.menu.chat, menu);
-        return true;
-    }
-
-    //按钮点击事件
-    @Override
-    public boolean onOptionsItemSelected(MenuItem menuItem) {
-        switch (menuItem.getItemId()) {
-            case R.id.item_clear:
-                SharedPreferences sharedPreferences = ChatActivity.this.getSharedPreferences("msgs", Context.MODE_PRIVATE);
-                SharedPreferences.Editor editor = sharedPreferences.edit();
-                msgList.clear();
-                editor.clear().apply();
-                adapter.notifyDataSetChanged();
-                break;
-            case R.id.item_headchanger:
-                if (ContextCompat.checkSelfPermission(ChatActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED){
-                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
-                        ActivityCompat.requestPermissions(ChatActivity.this,new String[]{
-                                Manifest.permission.WRITE_EXTERNAL_STORAGE,
-                                Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
-                    }
-                } else {
-                    openAlbum();
-                }
-                break;
-                default:
-                    break;
-        }
-        return true;
-    }
-
     public static final int CHOSE_PHOTO = 2;
     private List<Msg> msgList = new ArrayList<>();
     private EditText inputText;
     private RecyclerView msgRV;
     private MsgAdapter adapter;
     private String acceptData = "";
-    private String head1,head2;
+    private String head1;
+    private String bg;
+    private Path mPath = new Path("", Path.TYPE_HEAD);
+    private long mPressedTime = 0;
+    private PopupWindow popupWindow;
+    private LinearLayout linearLayout;
 
-    @SuppressLint("RestrictedApi")
+    //按两次返回键退出程序
+    @Override
+    public void onBackPressed() {
+        long mNowTime = System.currentTimeMillis();//获取第一次按键时间
+        if ((mNowTime - mPressedTime) > 2000) {//比较两次按键时间差
+            Toast.makeText(this, "再按一次退出程序", Toast.LENGTH_SHORT).show();
+            mPressedTime = mNowTime;
+        } else {//退出程序
+            this.finish();
+            System.exit(0);
+        }
+    }
+
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
+    @SuppressLint({"RestrictedApi", "ClickableViewAccessibility"})
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        setWindowStatusBarColor(ChatActivity.this, R.color.colorBlue);
         setContentView(R.layout.activity_chat);
+        ActionBar actionBar = getSupportActionBar();
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.KITKAT) {
+            getWindow().addFlags(WindowManager.LayoutParams.FLAG_LAYOUT_IN_OVERSCAN);
+        }
+        if (actionBar != null) {
+            actionBar.hide();
+        }
+        linearLayout = findViewById(R.id.ll_chat);
+        final Button menu = findViewById(R.id.btn_menu);
+        menu.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                hideSoftInput(ChatActivity.this,menu);
+                onClick onClick = new onClick();
+                @SuppressLint("InflateParams") View view = getLayoutInflater().inflate(R.layout.popup, null);
+                TextView clear = view.findViewById(R.id.tv_clear);
+                TextView head = view.findViewById(R.id.tv_head);
+                TextView background = view.findViewById(R.id.tv_background);
+                TextView cancel = view.findViewById(R.id.tv_cancel);
+                cancel.setOnClickListener(onClick);
+                clear.setOnClickListener(onClick);
+                head.setOnClickListener(onClick);
+                background.setOnClickListener(onClick);
+                popupWindow = new PopupWindow(view, msgRV.getWidth(), ViewGroup.LayoutParams.WRAP_CONTENT, true);
+                popupWindow.setOutsideTouchable(true);
+                popupWindow.setFocusable(true);
+                popupWindow.showAtLocation(msgRV, Gravity.BOTTOM, 0, 0);
+            }
+        });
         inputText = findViewById(R.id.et_input);
         Button send = findViewById(R.id.btn_send);
         msgRV = findViewById(R.id.rv_msg);
@@ -112,15 +135,41 @@ public class ChatActivity extends AppCompatActivity {
         msgRV.setLayoutManager(linearLayoutManager);
         head1 = "https://timgsa.baidu.com/timg?image&quality=80&size=b9999_10000&sec=1551193087698&di=eca7cf559e959086e0d8ba669639779d&imgtype=0&src=http%3A%2F%2Fhbimg.b0.upaiyun.com%2F9f833ab2c793f14fc25ea5613690d6e4911b1e405f4a00-XLMIdn_fw658";
         initMsgs();
-        readHeadPath();
-        adapter = new MsgAdapter(msgList, head1, head2, ChatActivity.this);
+        adapter = new MsgAdapter(msgList, head1, readHeadPath(), ChatActivity.this);
         msgRV.setAdapter(adapter);
-        inputText.setMovementMethod(getMovement());
+        if (msgList.size() > 0){
+            msgRV.scrollToPosition(msgList.size() - 1);
+        }
+        if (bg != null) {
+            setBackground(bg);
+        }
+        // GroupView的监听
+        inputText.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View view) {
+                //让View 也就是EditText获得焦点
+                inputText.requestFocus();
+                showSoftInput(ChatActivity.this, inputText);
+                //通过handler保证在主线程中进行滑动操作
+                handler.sendEmptyMessageDelayed(0,250);
+            }
+        });
+
+        //触摸recyclerView的监听
+        msgRV.setOnTouchListener(new View.OnTouchListener() {
+            @Override
+            public boolean onTouch(View view, MotionEvent motionEvent) {
+                //隐藏键盘
+                hideSoftInput(ChatActivity.this, msgRV);
+                return false;
+            }
+        });
+
         send.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 String content = inputText.getText().toString();
-                if (!"".equals(content)) {
+                if (!"".equals(content) && isNetworkConnected(ChatActivity.this)) {
                     Msg msg = new Msg(content, Msg.TYPE_SENT);
                     post(msg);
                     msgList.add(msg);
@@ -129,24 +178,88 @@ public class ChatActivity extends AppCompatActivity {
                     inputText.setText("");
                     acceptData = "";
                     save(msgList);
+                } else if (!isNetworkConnected(ChatActivity.this)) {
+                    Toast.makeText(ChatActivity.this, "网络连接中断", Toast.LENGTH_SHORT).show();
                 }
             }
         });
     }
 
-    //读取头像所在路径
-    private void readHeadPath() {
-        SharedPreferences sharedPreferences = ChatActivity.this.getSharedPreferences("imagePath", Context.MODE_PRIVATE);
-        head2 = sharedPreferences.getString("imagePath",null);
+    //设置状态栏颜色
+    public static void setWindowStatusBarColor(Activity activity, int colorResId) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+                Window window = activity.getWindow();
+                window.addFlags(WindowManager.LayoutParams.FLAG_DRAWS_SYSTEM_BAR_BACKGROUNDS);
+                window.setStatusBarColor(activity.getResources().getColor(colorResId));
+
+                //底部导航栏
+                //window.setNavigationBarColor(activity.getResources().getColor(colorResId));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
-    //设置头像
-    private void setHead(String imagePath) {
-        head2 = imagePath;
+    //item点击事件
+    private class onClick implements View.OnClickListener {
+
+        @Override
+        public void onClick(View v) {
+            switch (v.getId()) {
+                case R.id.tv_clear:
+                    SharedPreferences sharedPreferences = ChatActivity.this.getSharedPreferences("msgs", Context.MODE_PRIVATE);
+                    SharedPreferences.Editor editor = sharedPreferences.edit();
+                    msgList.clear();
+                    editor.clear().apply();
+                    adapter.notifyDataSetChanged();
+                    popupWindow.dismiss();
+                    break;
+                case R.id.tv_head:
+                    if (ContextCompat.checkSelfPermission(ChatActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                            ActivityCompat.requestPermissions(ChatActivity.this, new String[]{
+                                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                    Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
+                            popupWindow.dismiss();
+                        }
+                    } else {
+                        openAlbum();
+                        mPath.setType(Path.TYPE_HEAD);
+                        popupWindow.dismiss();
+                    }
+                    break;
+                case R.id.tv_background:
+                    if (ContextCompat.checkSelfPermission(ChatActivity.this, Manifest.permission.WRITE_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
+                        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.JELLY_BEAN) {
+                            ActivityCompat.requestPermissions(ChatActivity.this, new String[]{
+                                    Manifest.permission.WRITE_EXTERNAL_STORAGE,
+                                    Manifest.permission.READ_EXTERNAL_STORAGE}, 1);
+                            popupWindow.dismiss();
+                        }
+                    } else {
+                        openAlbum();
+                        mPath.setType(Path.TYPE_BACKROUND);
+                        popupWindow.dismiss();
+                    }
+                case R.id.tv_cancel:
+                    popupWindow.dismiss();
+                default:
+                    break;
+            }
+        }
+    }
+
+    //读取头像所在路径
+    private String readHeadPath() {
+        SharedPreferences sharedPreferences = ChatActivity.this.getSharedPreferences("imagePath", Context.MODE_PRIVATE);
+        String head2 = sharedPreferences.getString("head", null);
+        bg = sharedPreferences.getString("background", null);
+        return head2;
     }
 
     //打开相册
-    private void openAlbum(){
+    private void openAlbum() {
         Intent albumIntent = new Intent(Intent.ACTION_PICK);
         albumIntent.setDataAndType(MediaStore.Images.Media.EXTERNAL_CONTENT_URI, "image/*");
         startActivityForResult(albumIntent, CHOSE_PHOTO);
@@ -156,14 +269,14 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults);
-        switch (requestCode){
+        switch (requestCode) {
             case 1:
                 if (grantResults.length > 0 && grantResults[0] == PackageManager.PERMISSION_GRANTED)
                     openAlbum();
                 else
-                    Toast.makeText(ChatActivity.this,"无权限",Toast.LENGTH_SHORT).show();
+                    Toast.makeText(ChatActivity.this, "无权限", Toast.LENGTH_SHORT).show();
                 break;
-                default:
+            default:
         }
     }
 
@@ -171,43 +284,44 @@ public class ChatActivity extends AppCompatActivity {
     @Override
     protected void onActivityResult(int requestCode, int resultCode, @Nullable Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        switch (requestCode){
+        switch (requestCode) {
             case CHOSE_PHOTO:
-                if (resultCode == RESULT_OK){
-                    if (Build.VERSION.SDK_INT >= 19){
+                if (resultCode == RESULT_OK) {
+                    if (Build.VERSION.SDK_INT >= 19) {
                         handleImageOnKitKat(data);
                     } else {
                         handleImageBeforeKitKat(data);
                     }
                 }
                 break;
-                default:
-                    break;
+            default:
+                break;
         }
     }
 
     //低版本获取路径
     private void handleImageBeforeKitKat(Intent data) {
         Uri uri = data.getData();
-        String imagePath = getImagePath(uri,null);
-        save(imagePath);
+        String imagePath = getImagePath(uri);
+        mPath.setPath(imagePath);
     }
 
     //高版本获取路径
     @TargetApi(Build.VERSION_CODES.KITKAT)
     private void handleImageOnKitKat(Intent data) {
-        String imagePath = null;
+        String imagePath;
         Uri uri = data.getData();
-        imagePath = getImagePath(uri,null);
-        save(imagePath);
+        imagePath = getImagePath(uri);
+        mPath.setPath(imagePath);
+        //save(imagePath);
     }
 
     //获取路径方法
-    private String getImagePath(Uri uri, String selection) {
+    private String getImagePath(Uri uri) {
         String path = null;
-        Cursor cursor = getContentResolver().query(uri,null,selection,null,null);
-        if (cursor != null){
-            if (cursor.moveToFirst()){
+        Cursor cursor = getContentResolver().query(uri, null, null, null, null);
+        if (cursor != null) {
+            if (cursor.moveToFirst()) {
                 path = cursor.getString(cursor.getColumnIndex(MediaStore.Images.Media.DATA));
             }
             cursor.close();
@@ -215,54 +329,12 @@ public class ChatActivity extends AppCompatActivity {
         return path;
     }
 
-    //点击editetext时消息跳至最后一行
-    private MovementMethod getMovement() {
-        return new MovementMethod() {
-            @Override
-            public void initialize(TextView widget, Spannable text) {
-            }
-
-            @Override
-            public boolean onKeyDown(TextView widget, Spannable text, int keyCode, KeyEvent event) {
-                return false;
-            }
-
-            @Override
-            public boolean onKeyUp(TextView widget, Spannable text, int keyCode, KeyEvent event) {
-                return false;
-            }
-
-            @Override
-            public boolean onKeyOther(TextView view, Spannable text, KeyEvent event) {
-                return false;
-            }
-
-            @Override
-            public void onTakeFocus(TextView widget, Spannable text, int direction) {
-            }
-
-            @Override
-            public boolean onTrackballEvent(TextView widget, Spannable text, MotionEvent event) {
-                return false;
-            }
-
-            @Override
-            public boolean onTouchEvent(TextView widget, Spannable text, MotionEvent event) {
-                return false;
-            }
-
-            @Override
-            public boolean onGenericMotionEvent(TextView widget, Spannable text, MotionEvent event) {
-                return false;
-            }
-
-            @Override
-            public boolean canSelectArbitrarily() {
-                if (msgList.size() != 0)
-                    msgRV.smoothScrollToPosition(msgList.size() - 1);
-                return false;
-            }
-        };
+    //设置背景
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
+    private void setBackground(String imagePath) {
+        Bitmap bitmap = BitmapFactory.decodeFile(imagePath);
+        Drawable drawable = new BitmapDrawable(bitmap);
+        linearLayout.setBackground(drawable);
     }
 
     //保存消息记录
@@ -276,10 +348,10 @@ public class ChatActivity extends AppCompatActivity {
     }
 
     //保存头像路径
-    public void save(String imagePath){
+    public void save(String imagePath, String key) {
         SharedPreferences sharedPreferences = ChatActivity.this.getSharedPreferences("imagePath", Context.MODE_PRIVATE);
         SharedPreferences.Editor editor = sharedPreferences.edit();
-        editor.putString("imagePath", imagePath);
+        editor.putString(key, imagePath);
         editor.apply();
     }
 
@@ -317,66 +389,69 @@ public class ChatActivity extends AppCompatActivity {
                         e.printStackTrace();
                     }
                     break;
+                case 0:
+                    if (msgList.size() != 0 ) {
+                    msgRV.smoothScrollToPosition(msgList.size() - 1);
+                }
+                    break;
             }
         }
     };
 
     //默认内容，加载储存的消息
     private void initMsgs() {
-        Msg msg1 = new Msg("Hello guy.", Msg.TYPE_RECEIVED);
-        msgList.add(msg1);
-        Msg msg2 = new Msg("Hello. Who is that?", Msg.TYPE_SENT);
-        msgList.add(msg2);
-        Msg msg3 = new Msg("This is Tom. Nice to meet you.", Msg.TYPE_RECEIVED);
-        msgList.add(msg3);
+        Msg msg = new Msg("Hello guy.", Msg.TYPE_RECEIVED);
+        msgList.add(msg);
         read();
     }
 
-    //判断点击区域是否为消息列表区
-    public boolean isClickEt(View view, MotionEvent event) {
-        if (view != null && (view instanceof EditText)) {
-            int[] leftTop = new int[2];
-            view.getLocationOnScreen(leftTop);
-            int top = leftTop[1];
-            //获取状态栏高度
-            int statusBarHeight1 = -1;
-            int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
-            if (resourceId > 0) {
-                statusBarHeight1 = getResources().getDimensionPixelSize(resourceId);
-            }
-            //获取标题栏高度
-            int viewTop = getWindow().findViewById(Window.ID_ANDROID_CONTENT).getTop();
-            if ((event.getY() > top) || event.getY() < statusBarHeight1 + viewTop) {
-                return false;
-            } else {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    //关健盘
-    @Override
-    public boolean dispatchTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN) {
-    // 获取当前获得当前焦点所在View
-            View view = getCurrentFocus();
-            if (isClickEt(view, event)) {
-    // 如果不是edittext，则隐藏键盘
-                InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
-                if (inputMethodManager != null) {
-    // 隐藏键盘
-                    inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(), 0);
-                }
-            }
-            return super.dispatchTouchEvent(event);
-        }
-
-        if (getWindow().superDispatchTouchEvent(event)) {
-            return true;
-        }
-        return onTouchEvent(event);
-    }
+//    //判断点击区域是否为消息列表区
+//    public boolean isClickEt(View view, MotionEvent event) {
+//        if (view != null && (view instanceof EditText)) {
+//            int[] leftTop = new int[2];
+//            view.getLocationOnScreen(leftTop);
+//            int top = leftTop[1];
+//            //获取状态栏高度
+//            int statusBarHeight1 = -1;
+//            int resourceId = getResources().getIdentifier("status_bar_height", "dimen", "android");
+//            if (resourceId > 0) {
+//                statusBarHeight1 = getResources().getDimensionPixelSize(resourceId);
+//            }
+//            //获取标题栏高度
+//            int viewTop = getWindow().findViewById(Window.ID_ANDROID_CONTENT).getTop();
+//            if ((event.getY() > top) || event.getY() < statusBarHeight1 + viewTop) {
+//                return false;
+//            } else {
+//                return true;
+//            }
+//        }
+//        return false;
+//    }
+//
+//    //关健盘
+//    @Override
+//    public boolean dispatchTouchEvent(MotionEvent event) {
+//        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+//            // 获取当前获得当前焦点所在View
+//            View view = getCurrentFocus();
+//            if (isClickEt(view, event)) {
+//                // 如果不是edittext，则隐藏键盘
+//                InputMethodManager inputMethodManager = (InputMethodManager) getSystemService(Context.INPUT_METHOD_SERVICE);
+//                if (inputMethodManager != null) {
+//                    // 隐藏键盘
+//                    inputMethodManager.hideSoftInputFromWindow(view.getWindowToken(), 0);
+//                }
+//            } else {
+//                i = 1;
+//            }
+//            return super.dispatchTouchEvent(event);
+//        }
+//
+//        if (getWindow().superDispatchTouchEvent(event)) {
+//            return true;
+//        }
+//        return onTouchEvent(event);
+//    }
 
     //string转json
     public JSONObject strToJson(String string) {
@@ -435,14 +510,45 @@ public class ChatActivity extends AppCompatActivity {
         }.start();
     }
 
+    @RequiresApi(api = Build.VERSION_CODES.JELLY_BEAN)
     @Override
     protected void onRestart() {
         super.onRestart();
-        readHeadPath();
-        adapter = new MsgAdapter(msgList, head1, head2, ChatActivity.this);
-        msgRV.setAdapter(adapter);
+        if (mPath.getType() == Path.TYPE_HEAD && !mPath.getPath().equals("")) {
+            adapter = new MsgAdapter(msgList, head1, mPath.getPath(), ChatActivity.this);
+            msgRV.setAdapter(adapter);
+            save(mPath.getPath(), "head");
+        } else if (mPath.getType() == Path.TYPE_BACKROUND && !mPath.getPath().equals("")) {
+            setBackground(mPath.getPath());
+            save(mPath.getPath(), "background");
+        }
     }
 
+
+    //判断网络是否连接
+    public boolean isNetworkConnected(Context context) {
+        if (context != null) {
+            ConnectivityManager mConnectivityManager = (ConnectivityManager) context
+                    .getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
+            if (mNetworkInfo != null) {
+                return mNetworkInfo.isAvailable();
+            }
+        }
+        return false;
+    }
+
+    //弹出键盘
+    public static void showSoftInput(Context context, View view) {
+        InputMethodManager imm = (InputMethodManager) context.getSystemService(Activity.INPUT_METHOD_SERVICE);
+        imm.showSoftInput(view, InputMethodManager.SHOW_FORCED);
+    }
+
+    //隐藏键盘
+    public static void hideSoftInput(Context context, View view) {
+        InputMethodManager imm = (InputMethodManager) context.getSystemService(Activity.INPUT_METHOD_SERVICE);
+        imm.hideSoftInputFromWindow(view.getWindowToken(), 0);
+    }
 
 }
 

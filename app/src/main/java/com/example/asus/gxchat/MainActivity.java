@@ -1,16 +1,22 @@
 package com.example.asus.gxchat;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
+import android.net.ConnectivityManager;
+import android.net.NetworkInfo;
 import android.os.Bundle;
 import android.preference.PreferenceManager;
+import android.support.v7.app.ActionBar;
 import android.support.v7.app.AppCompatActivity;
 import android.view.View;
 import android.widget.Button;
 import android.widget.CheckBox;
 import android.widget.EditText;
 import android.widget.Toast;
+
+import static com.example.asus.gxchat.ChatActivity.setWindowStatusBarColor;
 
 public class MainActivity extends AppCompatActivity {
 
@@ -25,6 +31,11 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        ActionBar actionBar = getSupportActionBar();
+        if (actionBar != null) {
+            actionBar.hide();
+        }
+        setWindowStatusBarColor(MainActivity.this, R.color.colorBlue);
         mCbAccount = findViewById(R.id.cb_1);
         mCbPssword = findViewById(R.id.cb_2);
         mEtAccount = findViewById(R.id.et_account);
@@ -65,13 +76,30 @@ public class MainActivity extends AppCompatActivity {
         }else if (mEtPassword.getText().toString().equals("")){
             Toast.makeText(MainActivity.this,"密码不能为空",Toast.LENGTH_SHORT).show();
         }else if (mEtPassword.getText().toString().equals("12345") && mEtAccount.getText().toString().equals("12345")){
-            Toast.makeText(MainActivity.this,"登录成功",Toast.LENGTH_SHORT).show();
-            Intent intent = new Intent(MainActivity.this, ChatActivity.class);
-            startActivity(intent);
-            finish();
+            if (isNetworkConnected(MainActivity.this)){
+                Toast.makeText(MainActivity.this,"登录成功",Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(MainActivity.this, ChatActivity.class);
+                startActivity(intent);
+                finish();
+            }else {
+                Toast.makeText(MainActivity.this,"网络未连接",Toast.LENGTH_SHORT).show();
+            }
         }else {
             Toast.makeText(MainActivity.this,"用户名或密码错误",Toast.LENGTH_SHORT).show();
         }
+    }
+
+    //判断网络是否连接
+    public boolean isNetworkConnected(Context context) {
+        if (context != null) {
+            ConnectivityManager mConnectivityManager = (ConnectivityManager) context
+                    .getSystemService(Context.CONNECTIVITY_SERVICE);
+            NetworkInfo mNetworkInfo = mConnectivityManager.getActiveNetworkInfo();
+            if (mNetworkInfo != null) {
+                return mNetworkInfo.isAvailable();
+            }
+        }
+        return false;
     }
 
     private void ischecked() {
